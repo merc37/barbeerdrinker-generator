@@ -4,7 +4,8 @@ const Relation = require('../relation');
 
 module.exports = class Hour extends Relation {
     constructor(day, bar, open, close) {
-        super([day.name, bar.name]);
+        super([bar.name]);
+        this.day = day;
         this.open = open;
         this.close = close;
     }

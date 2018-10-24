@@ -12,7 +12,7 @@ const pool = mysql.createPool({
     database: 'BarBeerDrinker',
 });
 
-pool.query('SELECT * FROM BarBeerDrinker.items;').then((result) => {
+pool.query('SHOW ENGINE INNODB STATUS;').then((result) => {
     console.log(result);
     pool.end();
 }).catch((err) => {

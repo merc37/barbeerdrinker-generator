@@ -17,8 +17,9 @@ const pool = mysql.createPool({
 });
 
 Promise.all([
-    pool.query('SET FOREIGN_KEY_CHECKS=0'),
-]).then(() => {
+    pool.query('SET FOREIGN_KEY_CHECKS = 0;'),
+]).then((result) => {
+    console.log(result);
     return Promise.all([
         pool.query('DROP TABLE IF EXISTS drinkers;'),
         pool.query('DROP TABLE IF EXISTS items;'),
@@ -39,9 +40,9 @@ Promise.all([
             pool.query('CREATE TABLE bills(transactionID varchar(255), time varchar(255), total varchar(255), tip varchar(255), PRIMARY KEY(transactionID))'),
             pool.query('CREATE TABLE days(day varchar(255), PRIMARY KEY(day))'),
             pool.query('CREATE TABLE bars(name varchar(255), city varchar(255), phone varchar(255), address varchar(255), license varchar(255), PRIMARY KEY(name))'),
-         
+
             //relations
-           
+
             pool.query('CREATE TABLE likes(drinker varchar(255), item varchar(255), FOREIGN KEY(drinker) REFERENCES drinkers(name), FOREIGN KEY(item) REFERENCES items(name))'),
             pool.query('CREATE TABLE bills-issued(bill varchar(255), bar varchar(255), FOREIGN KEY(bill) REFERENCES bills(transactionID), FOREIGN KEY(bar) REFERENCES bars(name)'),
             pool.query('CREATE TABLE bills-owed(bill varchar(255), drinker varchar(255), FOREIGN KEY(bill) REFERENCES bills(transactionID), FOREIGN KEY(drinker) REFERENCES drinkers(name)'),
@@ -56,14 +57,17 @@ Promise.all([
             insertQueries = insertQueries.concat(GenerateItemsInsertQueries(items));
             const drinkers = GenerateDrinkers();
             insertQueries = insertQueries.concat(GenerateDrinkersInsertQueries(drinkers));
-            return Promise.all(insertQueries.map(insertQuery => {
+
+            insertQueries = insertQueries.map(insertQuery => {
                 return pool.query(insertQuery);
-            })).then(() => {
+            });
+            return Promise.all(insertQueries).then(() => {
                 //Fill in relations here
                 return Promise.all([
                     pool.query('SET FOREIGN_KEY_CHECKS=1'),
                 ]).then(() => {
-                    pool.end()
+                    console.log('DATABASE GENERATED');
+                    pool.end();
                 }).catch((err) => {
                     console.log(err);
                     pool.end();
@@ -102,7 +106,7 @@ const GenerateDrinkers = () => {
         } while (used.has(name));
         used.add(name);
         city = faker.address.city();
-        phone = faker.phone.phoneNumber();
+        phone = faker.phone.phoneNumberFormat(0);
         address = faker.address.streetAddress();
         drinkers.push(new Drinker(name, city, phone, address));
     }
@@ -111,17 +115,17 @@ const GenerateDrinkers = () => {
 
 const GenerateDrinkersInsertQueries = (drinkers) => {
     const insertQueries = [];
-    let insertQuery = 'INSERT INTO items VALUES ';
+    let insertQuery = 'INSERT INTO drinkers VALUES ';
     let values;
     drinkers.forEach(drinker => {
         values = '("' + drinker.name + '","' + drinker.city + '","' + drinker.phone + '","' + drinker.address + '"),';
         if ((insertQuery.length + values.length) > 2800) {
-            insertQueries.push(insertQuery.slice(0, -1));
-            insertQuery = 'INSERT INTO items VALUES ';
+            insertQueries.push(insertQuery.slice(0, -1) + ';');
+            insertQuery = 'INSERT INTO drinkers VALUES ';
         }
         insertQuery = insertQuery + values;
     });
-    insertQueries.push(insertQuery.slice(0, -1));
+    insertQueries.push(insertQuery.slice(0, -1) + ';');
     return insertQueries;
 };
 
@@ -156,11 +160,36 @@ const GenerateItemsInsertQueries = (items) => {
     items.forEach(item => {
         values = '("' + item.name + '","' + item.manufacturer + '","' + item.type + '"),';
         if ((insertQuery.length + values.length) > 2800) {
-            insertQueries.push(insertQuery.slice(0, -1));
+            insertQueries.push(insertQuery.slice(0, -1) + ';');
             insertQuery = 'INSERT INTO items VALUES ';
         }
         insertQuery = insertQuery + values;
     });
-    insertQueries.push(insertQuery.slice(0, -1));
+    insertQueries.push(insertQuery.slice(0, -1) + ';');
+    return insertQueries;
+};
+
+const GenerateLikes = (drinkers, items) => {
+    const likes = [];
+    const count = Math.floor(Math.random() * drinkers.length);
+    for (let i = 0; i < count; i++) {
+        likes.push(new Like(drinkers[i].name, items[Math.floor(Math.random() * items.length)].name));
+    }
+    return likes;
+};
+
+const GenerateLikesInsertQueries = (likes) => {
+    const insertQueries = [];
+    let insertQuery = 'INSERT INTO likes VALUES ';
+    let values;
+    likes.forEach(like => {
+        values = '("' + like.drinker + '","' + like.item + '"),';
+        if ((insertQuery.length + values.length) > 2800) {
+            insertQueries.push(insertQuery.slice(0, -1) + ';');
+            insertQuery = 'INSERT INTO likes VALUES ';
+        }
+        insertQuery = insertQuery + values;
+    });
+    insertQueries.push(insertQuery.slice(0, -1) + ';');
     return insertQueries;
 };
