@@ -23,11 +23,33 @@ Promise.all([
         pool.query('DROP TABLE IF EXISTS drinkers;'),
         pool.query('DROP TABLE IF EXISTS items;'),
         pool.query('DROP TABLE IF EXISTS likes;'),
+        pool.query('DROP TABLE IF EXISTS bills;'),
+        pool.query('DROP TABLE IF EXISTS days;'),
+        pool.query('DROP TABLE IF EXISTS bars;'),
+        pool.query('DROP TABLE IF EXISTS bills-issued;'),
+        pool.query('DROP TABLE IF EXISTS bills-owed;'),
+        pool.query('DROP TABLE IF EXISTS frequents;'),
+        pool.query('DROP TABLE IF EXISTS items-purchased;'),
+        pool.query('DROP TABLE IF EXISTS sells;'),
     ]).then(() => {
         return Promise.all([
+            //entities
             pool.query('CREATE TABLE drinkers(name varchar(255), city varchar(255), phone varchar(255), address varchar(255), PRIMARY KEY(name))'),
             pool.query('CREATE TABLE items(name varchar(255), manufacturer varchar(255), type varchar(255) NOT NULL, PRIMARY KEY(name))'),
+            pool.query('CREATE TABLE bills(transactionID varchar(255), time varchar(255), total varchar(255), tip varchar(255), PRIMARY KEY(transactionID))'),
+            pool.query('CREATE TABLE days(day varchar(255), PRIMARY KEY(day))'),
+            pool.query('CREATE TABLE bars(name varchar(255), city varchar(255), phone varchar(255), address varchar(255), license varchar(255), PRIMARY KEY(name))'),
+         
+            //relations
+           
             pool.query('CREATE TABLE likes(drinker varchar(255), item varchar(255), FOREIGN KEY(drinker) REFERENCES drinkers(name), FOREIGN KEY(item) REFERENCES items(name))'),
+            pool.query('CREATE TABLE bills-issued(bill varchar(255), bar varchar(255), FOREIGN KEY(bill) REFERENCES bills(transactionID), FOREIGN KEY(bar) REFERENCES bars(name)'),
+            pool.query('CREATE TABLE bills-owed(bill varchar(255), drinker varchar(255), FOREIGN KEY(bill) REFERENCES bills(transactionID), FOREIGN KEY(drinker) REFERENCES drinkers(name)'),
+            pool.query('CREATE TABLE frequents(bar varchar(255), drinker varchar(255), FOREIGN KEY(bar) REFERENCES bars(name), FOREIGN KEY(drinker) REFERENCES drinkers(name))'),
+            pool.query('CREATE TABLE items-purchased(bill varchar(255), item varchar(255), quantity varchar(255), FOREIGN KEY(bill) REFERENCES bills(transactionID), FOREIGN KEY(item) REFERENCES items(name))'),
+            pool.query('CREATE TABLE sells(item varchar(255), bar varchar(255), price varchar(255), FOREIGN KEY(item) REFERENCES items(name), FOREIGN KEY(bar) REFERENCES bars(name)'),
+
+
         ]).then(() => {
             let insertQueries = [];
             const items = GenerateItems();
