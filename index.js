@@ -2,15 +2,24 @@
 
 require('dotenv').config();
 const mysql = require('promise-mysql');
-const faker = require('faker');
 
-const Bar = require('./entities/bar');
-const Drinker = require('./entities/drinker');
-const Item = require('./entities/item');
-const Like = require('./relations/like');
+const generators = require('./generators');
 
-console.log(GenerateBars());
-process.exit(0);
+let entityInsertQueries = [];
+const items = generators.GenerateItems();
+entityInsertQueries = entityInsertQueries.concat(generators.GenerateItemsInsertQueries(items));
+const drinkers = generators.GenerateDrinkers();
+entityInsertQueries = entityInsertQueries.concat(generators.GenerateDrinkersInsertQueries(drinkers));
+entityInsertQueries = entityInsertQueries.map(insertQuery => {
+    return pool.query(insertQuery);
+});
+
+let relationInsertQueries = [];
+const likes = generators.GenerateLikes(drinkers, items);
+relationInsertQueries = relationInsertQueries.concat(generators.GenerateLikesInsertQueries(likes));
+relationInsertQueries = relationInsertQueries.map(insertQuery => {
+    return pool.query(insertQuery);
+});
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
@@ -21,57 +30,43 @@ const pool = mysql.createPool({
 });
 
 Promise.all([
-    pool.query('SET FOREIGN_KEY_CHECKS = 0;'),
-]).then((result) => {
-    console.log(result);
+    pool.query('DROP TABLE IF EXISTS BillsIssued;'),
+    pool.query('DROP TABLE IF EXISTS BillsOwed;'),
+    pool.query('DROP TABLE IF EXISTS Frequents;'),
+    pool.query('DROP TABLE IF EXISTS ItemsPurchased;'),
+    pool.query('DROP TABLE IF EXISTS Sells;'),
+]).then(() => {
     return Promise.all([
-        pool.query('DROP TABLE IF EXISTS drinkers;'),
-        pool.query('DROP TABLE IF EXISTS items;'),
-        pool.query('DROP TABLE IF EXISTS likes;'),
-        pool.query('DROP TABLE IF EXISTS bills;'),
-        pool.query('DROP TABLE IF EXISTS days;'),
-        pool.query('DROP TABLE IF EXISTS bars;'),
-        pool.query('DROP TABLE IF EXISTS bills-issued;'),
-        pool.query('DROP TABLE IF EXISTS bills-owed;'),
-        pool.query('DROP TABLE IF EXISTS frequents;'),
-        pool.query('DROP TABLE IF EXISTS items-purchased;'),
-        pool.query('DROP TABLE IF EXISTS sells;'),
+        pool.query('DROP TABLE IF EXISTS Drinkers;'),
+        pool.query('DROP TABLE IF EXISTS Items;'),
+        pool.query('DROP TABLE IF EXISTS Likes;'),
+        pool.query('DROP TABLE IF EXISTS Bills;'),
+        pool.query('DROP TABLE IF EXISTS Bars;'),
     ]).then(() => {
         return Promise.all([
             //entities
-            pool.query('CREATE TABLE drinkers(name varchar(255), city varchar(255), phone varchar(255), address varchar(255), PRIMARY KEY(name))'),
-            pool.query('CREATE TABLE items(name varchar(255), manufacturer varchar(255), type varchar(255) NOT NULL, PRIMARY KEY(name))'),
-            pool.query('CREATE TABLE bills(transactionID varchar(255), time varchar(255), total varchar(255), tip varchar(255), PRIMARY KEY(transactionID))'),
-            pool.query('CREATE TABLE days(day varchar(255), PRIMARY KEY(day))'),
-            pool.query('CREATE TABLE bars(name varchar(255), city varchar(255), phone varchar(255), address varchar(255), license varchar(255), PRIMARY KEY(name))'),
-
-            //relations
-
-            pool.query('CREATE TABLE likes(drinker varchar(255), item varchar(255), FOREIGN KEY(drinker) REFERENCES drinkers(name), FOREIGN KEY(item) REFERENCES items(name))'),
-            pool.query('CREATE TABLE bills-issued(bill varchar(255), bar varchar(255), FOREIGN KEY(bill) REFERENCES bills(transactionID), FOREIGN KEY(bar) REFERENCES bars(name)'),
-            pool.query('CREATE TABLE bills-owed(bill varchar(255), drinker varchar(255), FOREIGN KEY(bill) REFERENCES bills(transactionID), FOREIGN KEY(drinker) REFERENCES drinkers(name)'),
-            pool.query('CREATE TABLE frequents(bar varchar(255), drinker varchar(255), FOREIGN KEY(bar) REFERENCES bars(name), FOREIGN KEY(drinker) REFERENCES drinkers(name))'),
-            pool.query('CREATE TABLE items-purchased(bill varchar(255), item varchar(255), quantity varchar(255), FOREIGN KEY(bill) REFERENCES bills(transactionID), FOREIGN KEY(item) REFERENCES items(name))'),
-            pool.query('CREATE TABLE sells(item varchar(255), bar varchar(255), price varchar(255), FOREIGN KEY(item) REFERENCES items(name), FOREIGN KEY(bar) REFERENCES bars(name)'),
-
-
+            pool.query('CREATE TABLE Drinkers(name varchar(255), city varchar(255), phone varchar(255), address varchar(255), state varchar(255), PRIMARY KEY(name))'),
+            pool.query('CREATE TABLE Items(name varchar(255), manufacturer varchar(255), type varchar(255) NOT NULL, PRIMARY KEY(name))'),
+            pool.query('CREATE TABLE Bills(transactionID varchar(255), time varchar(255), total varchar(255), tip varchar(255), PRIMARY KEY(transactionID))'),
+            pool.query('CREATE TABLE Bars(name varchar(255), city varchar(255), phone varchar(255), address varchar(255), license varchar(255), PRIMARY KEY(name))'),
         ]).then(() => {
-            let insertQueries = [];
-            const items = GenerateItems();
-            insertQueries = insertQueries.concat(GenerateItemsInsertQueries(items));
-            const drinkers = GenerateDrinkers();
-            insertQueries = insertQueries.concat(GenerateDrinkersInsertQueries(drinkers));
-
-            insertQueries = insertQueries.map(insertQuery => {
-                return pool.query(insertQuery);
-            });
-            return Promise.all(insertQueries).then(() => {
-                //Fill in relations here
-                return Promise.all([
-                    pool.query('SET FOREIGN_KEY_CHECKS=1'),
-                ]).then(() => {
-                    console.log('DATABASE GENERATED');
-                    pool.end();
+            return Promise.all([
+                //relations
+                pool.query('CREATE TABLE Likes(drinker varchar(255), item varchar(255), FOREIGN KEY(drinker) REFERENCES Drinkers(name), FOREIGN KEY(item) REFERENCES Items(name))'),
+                pool.query('CREATE TABLE BillsIssued(bill varchar(255), bar varchar(255), FOREIGN KEY(bill) REFERENCES Bills(transactionID), FOREIGN KEY(bar) REFERENCES Bars(name))'),
+                pool.query('CREATE TABLE BillsOwed(bill varchar(255), drinker varchar(255), FOREIGN KEY(bill) REFERENCES Bills(transactionID), FOREIGN KEY(drinker) REFERENCES Drinkers(name))'),
+                pool.query('CREATE TABLE Frequents(bar varchar(255), drinker varchar(255), FOREIGN KEY(bar) REFERENCES Bars(name), FOREIGN KEY(drinker) REFERENCES Drinkers(name))'),
+                pool.query('CREATE TABLE ItemsPurchased(bill varchar(255), item varchar(255), quantity varchar(255), FOREIGN KEY(bill) REFERENCES Bills(transactionID), FOREIGN KEY(item) REFERENCES Items(name))'),
+                pool.query('CREATE TABLE Sells(item varchar(255), bar varchar(255), price varchar(255), FOREIGN KEY(item) REFERENCES Items(name), FOREIGN KEY(bar) REFERENCES Bars(name))'),
+            ]).then(() => {
+                return Promise.all(entityInsertQueries).then(() => {
+                    return Promise.all(relationInsertQueries).then(() => {
+                        console.log('DATABASE GENERATED');
+                        pool.end();
+                    }).catch((err) => {
+                        console.log(err);
+                        pool.end();
+                    });
                 }).catch((err) => {
                     console.log(err);
                     pool.end();
@@ -92,189 +87,3 @@ Promise.all([
     console.log(err);
     pool.end();
 });
-
-//This can be drastically improved by removing entity/relation specific data back to the class they came from
-const GenerateBars = () => {
-    const bars = [];
-    const count = 100;
-
-    let name;
-    let city;
-    let phone;
-    let address;
-    let license;
-    let state;
-
-    let used = new Set();
-    for (let i = 0; i < count; i++) {
-        do {
-            name = faker.name.firstName() + ' ' + faker.name.lastName();
-        } while (used.has(name));
-        used.add(name);
-        city = faker.address.city();
-        phone = faker.phone.phoneNumberFormat(0);
-        address = faker.address.streetAddress();
-        let temp = faker.address.stateAbbr();
-        license = temp + faker.random.number({min:10000, max:99999});
-        state = temp;
-        bars.push(new Bar(name, city, phone, address, license, state));
-    }
-    return bars;
-};
-
-const GenerateBarsInsertQueries = (bars) => {
-
-    const insertQueries = [];
-    let insertQuery = 'INSERT INTO Bars VALUES ';
-    let values;
-    bars.forEach(bars => {
-        values = '("' + bars.name + '","' + bars.city + '","' + bars.phone + '","' + bars.address + '", "' + bars.license + '", "' + bars.state + '"),';
-        if ((insertQuery.length + values.length) > 2800) {
-            insertQueries.push(insertQuery.slice(0, -1) + ';');
-            insertQuery = 'INSERT INTO Bars VALUES ';
-        }
-        insertQuery = insertQuery + values;
-    });
-    insertQueries.push(insertQuery.slice(0, -1) + ';');
-    return insertQueries;
-
-};
-
-
-const GenerateDrinkers = () => {
-    const drinkers = [];
-    const count = 100;
-
-    let name;
-    let city;
-    let phone;
-    let address;
-
-    let used = new Set();
-    for (let i = 0; i < count; i++) {
-        do {
-            name = faker.name.firstName() + ' ' + faker.name.lastName();
-        } while (used.has(name));
-        used.add(name);
-        city = faker.address.city();
-        phone = faker.phone.phoneNumberFormat(0);
-        address = faker.address.streetAddress();
-        state = faker.address.stateAbbr();
-        drinkers.push(new Drinker(name, city, phone, address, state));
-    }
-    return drinkers;
-};
-
-const GenerateDrinkersInsertQueries = (drinkers) => {
-    const insertQueries = [];
-    let insertQuery = 'INSERT INTO drinkers VALUES ';
-    let values;
-    drinkers.forEach(drinker => {
-        values = '("' + drinker.name + '","' + drinker.city + '","' + drinker.phone + '","' + drinker.address + '"),';
-        if ((insertQuery.length + values.length) > 2800) {
-            insertQueries.push(insertQuery.slice(0, -1) + ';');
-            insertQuery = 'INSERT INTO drinkers VALUES ';
-        }
-        insertQuery = insertQuery + values;
-    });
-    insertQueries.push(insertQuery.slice(0, -1) + ';');
-    return insertQueries;
-};
-
-const GenerateItems = () => {
-    const items = [];
-    const count = 100;
-    const types = [
-        'beer',
-        'item',
-    ];
-    let name;
-    let manufacturer;
-    let type;
-
-    let used = new Set();
-    for (let i = 0; i < count; i++) {
-        do {
-            name = faker.commerce.productName();
-        } while (used.has(name));
-        used.add(name);
-        manufacturer = faker.company.companyName();
-        type = types[Math.floor(Math.random() * types.length)];
-        items.push(new Item(name, manufacturer, type));
-    }
-    return items;
-};
-
-const GenerateItemsInsertQueries = (items) => {
-    const insertQueries = [];
-    let insertQuery = 'INSERT INTO items VALUES ';
-    let values;
-    items.forEach(item => {
-        values = '("' + item.name + '","' + item.manufacturer + '","' + item.type + '"),';
-        if ((insertQuery.length + values.length) > 2800) {
-            insertQueries.push(insertQuery.slice(0, -1) + ';');
-            insertQuery = 'INSERT INTO items VALUES ';
-        }
-        insertQuery = insertQuery + values;
-    });
-    insertQueries.push(insertQuery.slice(0, -1) + ';');
-    return insertQueries;
-};
-
-const GenerateLikes = (drinkers, items) => {
-    const likes = [];
-    const count = Math.floor(Math.random() * drinkers.length);
-    for (let i = 0; i < count; i++) {
-        likes.push(new Like(drinkers[i].name, items[Math.floor(Math.random() * items.length)].name));
-    }
-    return likes;
-};
-
-const GenerateLikesInsertQueries = (likes) => {
-    const insertQueries = [];
-    let insertQuery = 'INSERT INTO likes VALUES ';
-    let values;
-    likes.forEach(like => {
-        values = '("' + like.drinker + '","' + like.item + '"),';
-        if ((insertQuery.length + values.length) > 2800) {
-            insertQueries.push(insertQuery.slice(0, -1) + ';');
-            insertQuery = 'INSERT INTO likes VALUES ';
-        }
-        insertQuery = insertQuery + values;
-    });
-    insertQueries.push(insertQuery.slice(0, -1) + ';');
-    return insertQueries;
-};
-
-
-
-const GenerateFrequents = (drinkers, bars) => {
-    const frequents = [];
-    const count = Math.floor(Math.random() * drinkers.length);
-    for (let i = 0; i < count; i++) {
-        let j = Math.floor(Math.random() * bars.length); 
-        while(drinkers[i].state != bars[j].state){
-             j = Math.floor(Math.random() * bars.length);   
-        }
-        
-        frequents.push(new Frequents(drinkers[i].name, bars[j].name));
-    
-    }
-    return frequents;
-};
-
-const GenerateFrequentsInsertQueries = (frequents) => {
-    const insertQueries = [];
-    let insertQuery = 'INSERT INTO frequents VALUES ';
-    let values;
-    likes.forEach(like => {
-        values = '("' + frequents.drinker + '","' + frequents.bar + '"),';
-        if ((insertQuery.length + values.length) > 2800) {
-            insertQueries.push(insertQuery.slice(0, -1) + ';');
-            insertQuery = 'INSERT INTO frequents VALUES ';
-        }
-        insertQuery = insertQuery + values;
-    });
-    insertQueries.push(insertQuery.slice(0, -1) + ';');
-    return insertQueries;
-};
