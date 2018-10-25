@@ -4,9 +4,13 @@ require('dotenv').config();
 const mysql = require('promise-mysql');
 const faker = require('faker');
 
+const Bar = require('./entities/bar');
 const Drinker = require('./entities/drinker');
 const Item = require('./entities/item');
 const Like = require('./relations/like');
+
+console.log(GenerateBars());
+process.exit(0);
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
@@ -90,6 +94,53 @@ Promise.all([
 });
 
 //This can be drastically improved by removing entity/relation specific data back to the class they came from
+const GenerateBars = () => {
+    const bars = [];
+    const count = 100;
+
+    let name;
+    let city;
+    let phone;
+    let address;
+    let license;
+    let state;
+
+    let used = new Set();
+    for (let i = 0; i < count; i++) {
+        do {
+            name = faker.name.firstName() + ' ' + faker.name.lastName();
+        } while (used.has(name));
+        used.add(name);
+        city = faker.address.city();
+        phone = faker.phone.phoneNumberFormat(0);
+        address = faker.address.streetAddress();
+        let temp = faker.address.stateAbbr();
+        license = temp + faker.random.number({min:10000, max:99999});
+        state = temp;
+        bars.push(new Bar(name, city, phone, address, license, state));
+    }
+    return bars;
+};
+
+const GenerateBarsInsertQueries = (bars) => {
+
+    const insertQueries = [];
+    let insertQuery = 'INSERT INTO Bars VALUES ';
+    let values;
+    bars.forEach(bars => {
+        values = '("' + bars.name + '","' + bars.city + '","' + bars.phone + '","' + bars.address + '", "' + bars.license + '", "' + bars.state + '"),';
+        if ((insertQuery.length + values.length) > 2800) {
+            insertQueries.push(insertQuery.slice(0, -1) + ';');
+            insertQuery = 'INSERT INTO Bars VALUES ';
+        }
+        insertQuery = insertQuery + values;
+    });
+    insertQueries.push(insertQuery.slice(0, -1) + ';');
+    return insertQueries;
+
+};
+
+
 const GenerateDrinkers = () => {
     const drinkers = [];
     const count = 100;
@@ -108,7 +159,8 @@ const GenerateDrinkers = () => {
         city = faker.address.city();
         phone = faker.phone.phoneNumberFormat(0);
         address = faker.address.streetAddress();
-        drinkers.push(new Drinker(name, city, phone, address));
+        state = faker.address.stateAbbr();
+        drinkers.push(new Drinker(name, city, phone, address, state));
     }
     return drinkers;
 };
@@ -187,6 +239,39 @@ const GenerateLikesInsertQueries = (likes) => {
         if ((insertQuery.length + values.length) > 2800) {
             insertQueries.push(insertQuery.slice(0, -1) + ';');
             insertQuery = 'INSERT INTO likes VALUES ';
+        }
+        insertQuery = insertQuery + values;
+    });
+    insertQueries.push(insertQuery.slice(0, -1) + ';');
+    return insertQueries;
+};
+
+
+
+const GenerateFrequents = (drinkers, bars) => {
+    const frequents = [];
+    const count = Math.floor(Math.random() * drinkers.length);
+    for (let i = 0; i < count; i++) {
+        let j = Math.floor(Math.random() * bars.length); 
+        while(drinkers[i].state != bars[j].state){
+             j = Math.floor(Math.random() * bars.length);   
+        }
+        
+        frequents.push(new Frequents(drinkers[i].name, bars[j].name));
+    
+    }
+    return frequents;
+};
+
+const GenerateFrequentsInsertQueries = (frequents) => {
+    const insertQueries = [];
+    let insertQuery = 'INSERT INTO frequents VALUES ';
+    let values;
+    likes.forEach(like => {
+        values = '("' + frequents.drinker + '","' + frequents.bar + '"),';
+        if ((insertQuery.length + values.length) > 2800) {
+            insertQueries.push(insertQuery.slice(0, -1) + ';');
+            insertQuery = 'INSERT INTO frequents VALUES ';
         }
         insertQuery = insertQuery + values;
     });
