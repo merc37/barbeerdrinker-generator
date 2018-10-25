@@ -57,7 +57,7 @@ Promise.all([
                 pool.query('CREATE TABLE BillsOwed(bill varchar(255), drinker varchar(255), FOREIGN KEY(bill) REFERENCES Bills(transactionID), FOREIGN KEY(drinker) REFERENCES Drinkers(name))'),
                 pool.query('CREATE TABLE Frequents(bar varchar(255), drinker varchar(255), FOREIGN KEY(bar) REFERENCES Bars(name), FOREIGN KEY(drinker) REFERENCES Drinkers(name))'),
                 pool.query('CREATE TABLE ItemsPurchased(bill varchar(255), item varchar(255), quantity varchar(255), FOREIGN KEY(bill) REFERENCES Bills(transactionID), FOREIGN KEY(item) REFERENCES Items(name))'),
-                pool.query('CREATE TABLE Sells(item varchar(255), bar varchar(255), price varchar(255), FOREIGN KEY(item) REFERENCES Items(name), FOREIGN KEY(bar) REFERENCES Bars(name))'),
+                pool.query('CREATE TABLE Sells(item varchar(255), bar varchar(255), price FLOAT(10000, 2), FOREIGN KEY(item) REFERENCES Items(name), FOREIGN KEY(bar) REFERENCES Bars(name))'),
             ]).then(() => {
                 return Promise.all(entityInsertQueries).then(() => {
                     return Promise.all(relationInsertQueries).then(() => {

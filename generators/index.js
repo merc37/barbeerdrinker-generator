@@ -114,7 +114,8 @@ const GenerateItems = () => {
     let name;
     let manufacturer;
     let type;
-
+    let min;
+    let max;
     let used = new Set();
     for (let i = 0; i < count; i++) {
         do {
@@ -123,7 +124,9 @@ const GenerateItems = () => {
         used.add(name);
         manufacturer = faker.company.companyName();
         type = types[Math.floor(Math.random() * types.length)];
-        items.push(new Item(name, manufacturer, type));
+        min = i*5;
+        max = (i+1)*5;
+        items.push(new Item(name, manufacturer, type, min, max));
     }
     return items;
 };
@@ -197,6 +200,48 @@ const GenerateFrequentsInsertQueries = (frequents) => {
     insertQueries.push(insertQuery.slice(0, -1) + ';');
     return insertQueries;
 };
+
+const GenerateSells = (bars, items) => {
+    const sells = [];
+    const count = getRandomInt(bars.length - 1, Math.floor(bars.length / 4));
+
+
+    for (let i = 0; i < count; i++) {
+        let j = getRandomInt(items.length - 1);
+        let price = faker.finance.amount(items[j].min, items[j].max, 2);
+        sells.push(new Sell(bars[i].name, items[j].name, price));
+    }
+    return sells;
+};
+
+const GenerateSellsInsertQueries = (sells) => {
+    const insertQueries = [];
+    let insertQuery = 'INSERT INTO Sells VALUES ';
+    let values;
+    sells.forEach(sell => {
+        values = '("' + sell.bar + '","' + sell.item + '",' + sell.price + '),';
+        if ((insertQuery.length + values.length) > 2800) {
+            insertQueries.push(insertQuery.slice(0, -1) + ';');
+            insertQuery = 'INSERT INTO Sells VALUES ';
+        }
+        insertQuery = insertQuery + values;
+    });
+    insertQueries.push(insertQuery.slice(0, -1) + ';');
+    return insertQueries;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 module.exports = {
     GenerateBars: GenerateBars,

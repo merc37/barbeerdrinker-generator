@@ -8,5 +8,7 @@ module.exports = class Beer extends Entity {
         this.name = name;
         this.manufacturer = manufacturer;
         this.type = type;
+        this.min = min;
+        this.max = max;
     }
 };
