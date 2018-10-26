@@ -2,8 +2,8 @@
 
 const Entity = require('../entity');
 
-module.exports = class Beer extends Entity {
-    constructor(name, manufacturer, type) {
+module.exports = class Item extends Entity {
+    constructor(name, manufacturer, type, min, max) {
         super(name);
         this.name = name;
         this.manufacturer = manufacturer;
